@@ -7,6 +7,7 @@
 
 hex
 VARIABLE STATE 10 ALLOT
+VARIABLE KEY 10 ALLOT
 
 \ ----------- Lookup Tables -------------------
 
@@ -146,9 +147,16 @@ a8 C, e3 C, 3e C, 42 C, c6 C, 51 C, f3 C, 0e C,
 39 C, 4b C, dd C, 7c C, 84 C, 97 C, a2 C, fd C, 
 1c C, 24 C, 6c C, b4 C, c7 C, 52 C, f6 C, 01 C,
 
-decimal
-
 \ ----------- Helper words --------------------
+
+: KEY+ ( n --- key + n )
+  KEY + ;
+
+: KEY@ ( n --- @ key + n )
+  KEY+ C@ ;
+
+: KEY! ( n addrn --- ! key + n )
+  KEY+ C! ;
 
 : STATE+ ( n --- state + n )
   STATE + ;
@@ -172,31 +180,47 @@ decimal
   SBOXINV+ C@ ;
 
 : STATE-INIT ( --- state zeros )
-  STATE 16 0 FILL ;
+  STATE 10 0 FILL ;
 
 : STATE-SET ( n0, .. , n15 --- state )
-  16 0 
+  10 0 DO I 
+    STATE! 
+  LOOP ;
 
 : STATE? ( --- )
-  16 0 DO I 
+  CR ." STATE: " 
+  10 0 DO I 
     STATE@ .x2 
+  LOOP ;
+
+: KEY-INIT ( --- key zeros )
+  KEY 10 0 FILL ;
+
+: KEY-SET ( n0, .. , n15 --- key )
+  10 0 DO I
+    KEY!
+  LOOP ;
+
+: KEY? ( --- )
+  CR ." KEY:   " 
+  10 0 DO I 
+    KEY@ .x2 
   LOOP ;
 
 \ --- Experimental words (will be removed) ----
 
-
 : XORSTATE ( state --- state XOR sbox )
-  16 0 DO I DUP DUP 
-    @STATE SWAP 
-    @SBOX XOR SWAP 
-    !STATE 
+  10 0 DO I DUP DUP 
+    STATE@ SWAP 
+    SBOX@ XOR SWAP 
+    STATE! 
   LOOP ;
 
 : ANDSTATE ( state --- state AND sbox )
-  16 0 DO I DUP DUP 
-    @STATE SWAP 
-    @SBOX AND SWAP 
-    !STATE 
+  10 0 DO I DUP DUP 
+    STATE@ SWAP 
+    SBOX@ AND SWAP 
+    STATE! 
   LOOP ;
 
 \ ---------------------------------------------
@@ -204,7 +228,7 @@ decimal
 \ ---------------------------------------------
 
 : BYTES-SBOX
-  16 0 DO 
+  10 0 DO 
     I STATE@ SBOX@ 
     I STATE! 
   LOOP ;
@@ -215,10 +239,20 @@ decimal
 : MIX-COLUMNS
   ;
 
-: ADD-RKEY
+: ADD-RKEY0
+	10 0 DO 
+    I STATE@
+    I KEY@
+    XOR
+    I STATE!
+  LOOP ;
+
+: ADD-RKEYN
   ;
 
-: ENCODE128
+: ENCODE128 ( key state --- cipher )
+  ADD-RKEY0
+  BYTES-SBOX
   ;
 
 \ ---------------------------------------------
@@ -226,7 +260,7 @@ decimal
 \ ---------------------------------------------
 
 : BYTES-SBOX-INV
-  16 0 DO
+  10 0 DO
     I STATE@ SBOXINV@
     I STATE!
   LOOP ;
@@ -244,5 +278,19 @@ decimal
   ;
 
 \ --------- TESTING ---------------------------
+
+: ENCTEST
+  \ ---- Key from FIPS-197 ( key-byte nr. 0 on top of the stack )
+  0F 0E 0D 0C 0B 0A 09 08 07 06 05 04 03 02 01 00
+  KEY-SET
+  \ ---- Plaintext from FIPS-197 ( state-byte nr. 0 on top of the stack)
+  FF EE DD CC BB AA 99 88 77 66 55 44 33 22 11 00
+  STATE-SET
+  KEY?
+  STATE?
+	ENCODE128
+  KEY?
+  STATE?
+  ;
 
 
