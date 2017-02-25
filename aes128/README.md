@@ -8,7 +8,7 @@ Notes:
 
 - The code is experimental, don't use it productive.
 - It's work-in-progress and not nearly finished.
-- The sbox-, sboxinv-, log- and loginv-Lookup-Tables are from NIST-197.
-- The test-vectors are from NIST-197 too.
+- The sbox-, sboxinv-, log- and loginv-Lookup-Tables are from FIPS-197.
+- The test-vectors are from FIPS-197 too.
 
 
