@@ -152,8 +152,7 @@ a8 C, e3 C, 3e C, 42 C, c6 C, 51 C, f3 C, 0e C,
 1c C, 24 C, 6c C, b4 C, c7 C, 52 C, f6 C, 01 C,
 
 CREATE ROUNDCON 
-00 C,  \ --- unused, only for index purpose 
-01 C, 02 C, 04 C, 08 C, 10 C, 20 C, 40 C, 80 C, 1B C, 36 C,
+00 C, 01 C, 02 C, 04 C, 08 C, 10 C, 20 C, 40 C, 80 C, 1B C, 36 C,
 
 \ ----------- Helper words --------------------
 
@@ -247,58 +246,28 @@ CREATE ROUNDCON
     WT@ .x2 
   LOOP ;
 
-\ --- Experimental words (will be removed) ----
-
-: XORSTATE ( state --- state XOR sbox )
-  10 0 DO I DUP DUP 
-    STATE@ SWAP 
-    SBOX@ XOR SWAP 
-    STATE! 
-  LOOP ;
-
-: ANDSTATE ( state --- state AND sbox )
-  10 0 DO I DUP DUP 
-    STATE@ SWAP 
-    SBOX@ AND SWAP 
-    STATE! 
-  LOOP ;
-
 \ --- Key Expansion ---------------------------
 
 : ROTWORD ( wt --- wt )
   0 WT@ BT ! 1 WT@ 0 WT! 2 WT@ 1 WT! 3 WT@ 2 WT! BT @ 3 WT! ;
 
 : SUBWORD ( wt --- wt )
-  4 0 DO 
-    I WT@ SBOX@ 
-    I WT! 
-  LOOP ;
+  4 0 DO I WT@ SBOX@ I WT! LOOP ;
 
 : RCON ( wt --- wt )
-  0 WT@
-  ROUND @ ROUNDCON + C@
-  XOR
-  0 WT! ;
-
-: WXOR ( wt --- wt )
-  4 0 DO
-    I RKEY@
-    I WT@
-    XOR
-    I RKEY!
-  LOOP ;
+  0 WT@ ROUND @ ROUNDCON + C@ XOR 0 WT! ;
 
 : NEXTKEY ( rkey --- next rkey )
   \ --- word 0
   4 0 DO I C + RKEY@ I WT! LOOP
-  ROTWORD SUBWORD RCON WXOR
+  ROTWORD SUBWORD RCON
+  4 0 DO I RKEY@ I WT@ XOR I RKEY! LOOP
   \ --- word 1
   4 0 DO I 4 + RKEY@ I RKEY@ XOR I 4 + RKEY! LOOP
   \ --- word 2
   4 0 DO I 8 + RKEY@ I 4 + RKEY@ XOR I 8 + RKEY! LOOP
   \ --- word 3
-  4 0 DO I C + RKEY@ I 8 + RKEY@ XOR I C + RKEY! LOOP
-  ;
+  4 0 DO I C + RKEY@ I 8 + RKEY@ XOR I C + RKEY! LOOP ;
 
 \ ---------------------------------------------
 \ --------- AES 128 ENCODING ------------------
@@ -331,13 +300,28 @@ CREATE ROUNDCON
   LOOP ;
 
 : ADD-RKEYN
-  ;
+  NEXTKEY
+  10 0 DO
+    I STATE@
+    I RKEY@
+    XOR
+    I STATE!
+  LOOP ;
 
 : ENCODE128 ( key plainstate --- cipherstate )
-  0 ROUND !
+  0 ROUND C! 
   ADD-RKEY0
+  A 1 DO 
+    I ROUND C!
+    BYTES-SBOX
+    SHIFT-ROWS
+    MIX-COLUMNS
+    ADD-RKEYN
+  LOOP
+  A ROUND C!
   BYTES-SBOX
   SHIFT-ROWS
+  ADD-RKEYN
   ;
 
 \ ---------------------------------------------
@@ -380,7 +364,6 @@ CREATE ROUNDCON
   KEY?
   STATE?
   RKEY?
-  B  1 DO I ROUND ! NEXTKEY RKEY? LOOP
   ;
 
 
