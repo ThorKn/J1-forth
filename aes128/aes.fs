@@ -8,6 +8,7 @@
 hex
 VARIABLE STATE 10 ALLOT
 VARIABLE KEY 10 ALLOT
+VARIABLE BT  \ ---------------------- Byte Temp
 
 \ ----------- Lookup Tables -------------------
 
@@ -227,19 +228,21 @@ a8 C, e3 C, 3e C, 42 C, c6 C, 51 C, f3 C, 0e C,
 \ --------- AES 128 ENCODING ------------------
 \ ---------------------------------------------
 
-: BYTES-SBOX
+: BYTES-SBOX ( state --- state )
   10 0 DO 
     I STATE@ SBOX@ 
     I STATE! 
   LOOP ;
 
-: SHIFT-ROWS
-  ;
+: SHIFT-ROWS ( state --- state )
+  1 STATE@ BT ! 5 STATE@ 1 STATE! 9 STATE@ 5 STATE! D STATE@ 9 STATE! BT @ D STATE!
+  2 STATE@ BT ! A STATE@ 2 STATE! BT @ A STATE! 6 STATE@ BT ! E STATE@ 6 STATE! BT @ E STATE! 
+  F STATE@ BT ! B STATE@ F STATE! 7 STATE@ B STATE! 3 STATE@ 7 STATE! BT @ 3 STATE! ;
 
 : MIX-COLUMNS
   ;
 
-: ADD-RKEY0
+: ADD-RKEY0 ( state --- state )
 	10 0 DO 
     I STATE@
     I KEY@
@@ -250,9 +253,10 @@ a8 C, e3 C, 3e C, 42 C, c6 C, 51 C, f3 C, 0e C,
 : ADD-RKEYN
   ;
 
-: ENCODE128 ( key state --- cipher )
+: ENCODE128 ( key plainstate --- cipherstate )
   ADD-RKEY0
   BYTES-SBOX
+  SHIFT-ROWS
   ;
 
 \ ---------------------------------------------
@@ -266,6 +270,7 @@ a8 C, e3 C, 3e C, 42 C, c6 C, 51 C, f3 C, 0e C,
   LOOP ;
 
 : SHIFT-ROWS-INV
+  
   ;
 
 : MIX-COLUMNS-INV
@@ -289,6 +294,7 @@ a8 C, e3 C, 3e C, 42 C, c6 C, 51 C, f3 C, 0e C,
   KEY?
   STATE?
 	ENCODE128
+  CR ." ENCODING... "
   KEY?
   STATE?
   ;
