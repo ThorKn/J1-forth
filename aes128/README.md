@@ -3,6 +3,7 @@ Get the aes to work:
 1. Boot up the J1 with swapforth (#include swapforth.fs)
 2. Get a connection to the shell.py on your PC
 3. #include aes.fs
+4. enctest
 
 Notes:
 
