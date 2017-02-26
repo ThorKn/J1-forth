@@ -10,7 +10,8 @@ Notes:
 
 - The code is experimental, don't use it productive.
 - It's work-in-progress and not nearly finished.
-- The sbox-, sboxinv-, log- and loginv-Lookup-Tables are from FIPS-197.
+- The sbox- and sboxinv-Lookup-Tables are from FIPS-197.
+- The log- and loginv-Lookup-Tables are selfcalculated.
 - The test-vectors are from FIPS-197 too.
 
 
