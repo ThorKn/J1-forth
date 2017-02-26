@@ -6,9 +6,12 @@
 \ ---------------------------------------------
 
 hex
-VARIABLE STATE 10 ALLOT
-VARIABLE KEY 10 ALLOT
-VARIABLE BT  \ ---------------------- Byte Temp
+VARIABLE STATE 10 ALLOT \ -------- Actual State
+VARIABLE KEY 10 ALLOT \ ------------------- Key
+VARIABLE RKEY 10 ALLOT \ ------------ Round Key
+VARIABLE BT \ ----------------------- Byte Temp
+VARIABLE WT 4 ALLOT \ ----------- AES-Word Temp
+VARIABLE ROUND \ ---------------- Round Counter
 
 \ ----------- Lookup Tables -------------------
 
@@ -148,6 +151,10 @@ a8 C, e3 C, 3e C, 42 C, c6 C, 51 C, f3 C, 0e C,
 39 C, 4b C, dd C, 7c C, 84 C, 97 C, a2 C, fd C, 
 1c C, 24 C, 6c C, b4 C, c7 C, 52 C, f6 C, 01 C,
 
+CREATE ROUNDCON 
+00 C,  \ --- unused, only for index purpose 
+01 C, 02 C, 04 C, 08 C, 10 C, 20 C, 40 C, 80 C, 1B C, 36 C,
+
 \ ----------- Helper words --------------------
 
 : KEY+ ( n --- key + n )
@@ -158,6 +165,24 @@ a8 C, e3 C, 3e C, 42 C, c6 C, 51 C, f3 C, 0e C,
 
 : KEY! ( n addrn --- ! key + n )
   KEY+ C! ;
+
+: RKEY+ ( n --- rkey + n )
+  RKEY + ;
+
+: RKEY@ ( n --- @ rkey + n )
+  RKEY+ C@ ;
+
+: RKEY! ( n addrn --- ! rkey + n )
+  RKEY+ C! ;
+
+: WT+ ( n --- wt + n )
+  WT + ;
+
+: WT@ ( n --- @ wt + n )
+  WT+ C@ ;
+
+: WT! ( n addrn --- ! wt + n )
+  WT+ C! ;
 
 : STATE+ ( n --- state + n )
   STATE + ;
@@ -188,12 +213,6 @@ a8 C, e3 C, 3e C, 42 C, c6 C, 51 C, f3 C, 0e C,
     STATE! 
   LOOP ;
 
-: STATE? ( --- )
-  CR ." STATE: " 
-  10 0 DO I 
-    STATE@ .x2 
-  LOOP ;
-
 : KEY-INIT ( --- key zeros )
   KEY 10 0 FILL ;
 
@@ -202,10 +221,30 @@ a8 C, e3 C, 3e C, 42 C, c6 C, 51 C, f3 C, 0e C,
     KEY!
   LOOP ;
 
+\ --- Debugging words --------------------------
+
+: STATE? ( --- )
+  CR ." STATE: " 
+  10 0 DO I 
+    STATE@ .x2 
+  LOOP ;
+
 : KEY? ( --- )
   CR ." KEY:   " 
   10 0 DO I 
     KEY@ .x2 
+  LOOP ;
+
+: RKEY? ( --- )
+  CR ." RKEY:  " 
+  10 0 DO I 
+    RKEY@ .x2 
+  LOOP ;
+
+: WT? ( --- )
+  CR ." WT:    " 
+  4 0 DO I 
+    WT@ .x2 
   LOOP ;
 
 \ --- Experimental words (will be removed) ----
@@ -223,6 +262,43 @@ a8 C, e3 C, 3e C, 42 C, c6 C, 51 C, f3 C, 0e C,
     SBOX@ AND SWAP 
     STATE! 
   LOOP ;
+
+\ --- Key Expansion ---------------------------
+
+: ROTWORD ( wt --- wt )
+  0 WT@ BT ! 1 WT@ 0 WT! 2 WT@ 1 WT! 3 WT@ 2 WT! BT @ 3 WT! ;
+
+: SUBWORD ( wt --- wt )
+  4 0 DO 
+    I WT@ SBOX@ 
+    I WT! 
+  LOOP ;
+
+: RCON ( wt --- wt )
+  0 WT@
+  ROUND @ ROUNDCON + C@
+  XOR
+  0 WT! ;
+
+: WXOR ( wt --- wt )
+  4 0 DO
+    I RKEY@
+    I WT@
+    XOR
+    I RKEY!
+  LOOP ;
+
+: NEXTKEY ( rkey --- next rkey )
+  \ --- word 0
+  4 0 DO I C + RKEY@ I WT! LOOP
+  ROTWORD SUBWORD RCON WXOR
+  \ --- word 1
+  4 0 DO I 4 + RKEY@ I RKEY@ XOR I 4 + RKEY! LOOP
+  \ --- word 2
+  4 0 DO I 8 + RKEY@ I 4 + RKEY@ XOR I 8 + RKEY! LOOP
+  \ --- word 3
+  4 0 DO I C + RKEY@ I 8 + RKEY@ XOR I C + RKEY! LOOP
+  ;
 
 \ ---------------------------------------------
 \ --------- AES 128 ENCODING ------------------
@@ -242,10 +318,14 @@ a8 C, e3 C, 3e C, 42 C, c6 C, 51 C, f3 C, 0e C,
 : MIX-COLUMNS
   ;
 
-: ADD-RKEY0 ( state --- state )
-	10 0 DO 
-    I STATE@
+: ADD-RKEY0 ( key --- rkey , state --- state)
+  10 0 DO
     I KEY@
+    I RKEY!
+  LOOP
+  10 0 DO
+    I STATE@
+    I RKEY@
     XOR
     I STATE!
   LOOP ;
@@ -254,6 +334,7 @@ a8 C, e3 C, 3e C, 42 C, c6 C, 51 C, f3 C, 0e C,
   ;
 
 : ENCODE128 ( key plainstate --- cipherstate )
+  0 ROUND !
   ADD-RKEY0
   BYTES-SBOX
   SHIFT-ROWS
@@ -286,7 +367,8 @@ a8 C, e3 C, 3e C, 42 C, c6 C, 51 C, f3 C, 0e C,
 
 : ENCTEST
   \ ---- Key from FIPS-197 ( key-byte nr. 0 on top of the stack )
-  0F 0E 0D 0C 0B 0A 09 08 07 06 05 04 03 02 01 00
+\ 0F 0E 0D 0C 0B 0A 09 08 07 06 05 04 03 02 01 00
+  3C 4F CF 09 88 15 F7 AB A6 D2 AE 28 16 15 7E 2B
   KEY-SET
   \ ---- Plaintext from FIPS-197 ( state-byte nr. 0 on top of the stack)
   FF EE DD CC BB AA 99 88 77 66 55 44 33 22 11 00
@@ -297,6 +379,8 @@ a8 C, e3 C, 3e C, 42 C, c6 C, 51 C, f3 C, 0e C,
   CR ." ENCODING... "
   KEY?
   STATE?
+  RKEY?
+  B  1 DO I ROUND ! NEXTKEY RKEY? LOOP
   ;
 
 
