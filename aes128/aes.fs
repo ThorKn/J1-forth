@@ -11,6 +11,7 @@ VARIABLE KEY 10 ALLOT \ ------------------- Key
 VARIABLE RKEY 10 ALLOT \ ------------ Round Key
 VARIABLE BT \ ----------------------- Byte Temp
 VARIABLE WT 4 ALLOT \ ----------- AES-Word Temp
+VARIABLE MC 4 ALLOT \ -------- Mix-Columns Temp
 VARIABLE ROUND \ ---------------- Round Counter
 
 \ ----------- Lookup Tables -------------------
@@ -183,6 +184,15 @@ CREATE ROUNDCON
 : WT! ( n addrn --- ! wt + n )
   WT+ C! ;
 
+: MC+ ( n --- mc + n )
+  MC + ;
+
+: MC@ ( n --- @ mc + n )
+  MC+ C@ ;
+
+: MC! ( n addrn --- ! mc + n )
+  MC+ C! ;
+
 : STATE+ ( n --- state + n )
   STATE + ;
 
@@ -204,44 +214,64 @@ CREATE ROUNDCON
 : SBOXINV@ ( n --- @ sboxinv + n )
   SBOXINV+ C@ ;
 
+: LOG@
+  LOG + C@ ;
+
+: LOGINV@
+  LOGINV + C@ ;
+
 : STATE-INIT ( --- state zeros )
   STATE 10 0 FILL ;
 
-: STATE-SET ( n0, .. , n15 --- state )
-  10 0 DO I 
+: STATE-SET-LOW ( n0, .. , n7 --- state low 8 bytes )
+  8 0 DO I 8 + 
+    STATE! 
+  LOOP ;
+
+: STATE-SET-HIGH ( n0, .. , n7 --- state high 8 bytes )
+  8 0 DO I 
     STATE! 
   LOOP ;
 
 : KEY-INIT ( --- key zeros )
   KEY 10 0 FILL ;
 
-: KEY-SET ( n0, .. , n15 --- key )
-  10 0 DO I
+: KEY-SET-LOW ( n0, .. , n7 --- key low 8 bytes )
+  8 0 DO I 8 +
     KEY!
   LOOP ;
+
+: KEY-SET-HIGH ( n0, .. , n7 --- key high 8 bytes )
+  8 0 DO I
+    KEY!
+  LOOP ;
+
+: MULGF2 ( n1,n2 --- n )
+  OVER IF 
+    LOG@ SWAP LOG@ +
+    FF MOD LOGINV@
+  ELSE 
+    DROP DROP 0 
+  THEN ;
 
 \ --- Debugging words --------------------------
 
 : STATE? ( --- )
-  CR ." STATE: " 
   10 0 DO I 
     STATE@ .x2 
   LOOP ;
 
 : KEY? ( --- )
-  CR ." KEY:   " 
   10 0 DO I 
     KEY@ .x2 
   LOOP ;
 
 : RKEY? ( --- )
-  CR ." RKEY:  " 
   10 0 DO I 
     RKEY@ .x2 
   LOOP ;
 
 : WT? ( --- )
-  CR ." WT:    " 
   4 0 DO I 
     WT@ .x2 
   LOOP ;
@@ -285,7 +315,36 @@ CREATE ROUNDCON
   F STATE@ BT ! B STATE@ F STATE! 7 STATE@ B STATE! 3 STATE@ 7 STATE! BT @ 3 STATE! ;
 
 : MIX-COLUMNS
-  ;
+  D 0 DO 
+    \ --- i+0. byte of column
+    I STATE@ 2 MULGF2   
+    I 1 + STATE@ 3 MULGF2 XOR
+    I 2 + STATE@ XOR
+    I 3 + STATE@ XOR
+    0 MC!
+    \ --- i+1. byte of column
+    I STATE@
+    I 1 + STATE@ 2 MULGF2 XOR
+    I 2 + STATE@ 3 MULGF2 XOR
+    I 3 + STATE@ XOR
+    1 MC!
+    \ --- i+2. byte of column
+    I STATE@
+    I 1 + STATE@ XOR
+    I 2 + STATE@ 2 MULGF2 XOR
+    I 3 + STATE@ 3 MULGF2 XOR
+    2 MC!
+    \ --- i+3. byte of column
+    I STATE@ 3 MULGF2
+    I 1 + STATE@ XOR
+    I 2 + STATE@ XOR
+    I 3 + STATE@ 2 MULGF2 XOR
+    3 MC!
+    4 0 DO
+      I MC@
+      I J + STATE!
+    LOOP
+  4 +LOOP ;
 
 : ADD-RKEY0 ( key --- rkey , state --- state)
   10 0 DO
@@ -321,8 +380,7 @@ CREATE ROUNDCON
   A ROUND C!
   BYTES-SBOX
   SHIFT-ROWS
-  ADD-RKEYN
-  ;
+  ADD-RKEYN ;
 
 \ ---------------------------------------------
 \ --------- AES 128 DECODING ------------------
@@ -335,7 +393,6 @@ CREATE ROUNDCON
   LOOP ;
 
 : SHIFT-ROWS-INV
-  
   ;
 
 : MIX-COLUMNS-INV
@@ -350,20 +407,23 @@ CREATE ROUNDCON
 \ --------- TESTING ---------------------------
 
 : ENCTEST
+
   \ ---- Key from FIPS-197 ( key-byte nr. 0 on top of the stack )
-\ 0F 0E 0D 0C 0B 0A 09 08 07 06 05 04 03 02 01 00
-  3C 4F CF 09 88 15 F7 AB A6 D2 AE 28 16 15 7E 2B
-  KEY-SET
+  0F 0E 0D 0C 0B 0A 09 08 
+\ --- 3C 4F CF 09 88 15 F7 AB 
+  KEY-SET-LOW
+  07 06 05 04 03 02 01 00
+\ --- A6 D2 AE 28 16 15 7E 2B
+  KEY-SET-HIGH
+
   \ ---- Plaintext from FIPS-197 ( state-byte nr. 0 on top of the stack)
-  FF EE DD CC BB AA 99 88 77 66 55 44 33 22 11 00
-  STATE-SET
-  KEY?
-  STATE?
-	ENCODE128
+  FF EE DD CC BB AA 99 88 
+  STATE-SET-LOW
+  77 66 55 44 33 22 11 00
+  STATE-SET-HIGH
+
+  CR ." KEY:    " KEY?
+  CR ." PLAIN:  " STATE?
+  ENCODE128
   CR ." ENCODING... "
-  KEY?
-  STATE?
-  RKEY?
-  ;
-
-
+  CR ." CIPHER: " STATE? ;
