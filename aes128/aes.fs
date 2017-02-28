@@ -2,7 +2,7 @@
 \ -- Module: AES 128 in ANS-FORTH -------------
 \ -- Author: Thorsten Knoll -------------------
 \ -- Date:   Feb 2017 -------------------------
-\ -- Written for J1A CPU ----------------------
+\ -- Written for J1Sc CPU ---------------------
 \ ---------------------------------------------
 
 hex
@@ -157,68 +157,11 @@ CREATE ROUNDCON
 
 \ ----------- Helper words --------------------
 
-: KEY+ ( n --- key + n )
-  KEY + ;
-
-: KEY@ ( n --- @ key + n )
-  KEY+ C@ ;
-
-: KEY! ( n addrn --- ! key + n )
-  KEY+ C! ;
-
-: RKEY+ ( n --- rkey + n )
-  RKEY + ;
-
-: RKEY@ ( n --- @ rkey + n )
-  RKEY+ C@ ;
-
-: RKEY! ( n addrn --- ! rkey + n )
-  RKEY+ C! ;
-
-: WT+ ( n --- wt + n )
-  WT + ;
-
-: WT@ ( n --- @ wt + n )
-  WT+ C@ ;
-
-: WT! ( n addrn --- ! wt + n )
-  WT+ C! ;
-
-: MC+ ( n --- mc + n )
-  MC + ;
-
-: MC@ ( n --- @ mc + n )
-  MC+ C@ ;
-
-: MC! ( n addrn --- ! mc + n )
-  MC+ C! ;
-
-: STATE+ ( n --- state + n )
-  STATE + ;
-
 : STATE@ ( n --- @ state + n )
-  STATE+ C@ ;
+  STATE + C@ ;
 
 : STATE! ( n addrn --- ! state + n )
-  STATE+ C! ;
-
-: SBOX+ ( n --- sbox + n )
-  SBOX + ;
-
-: SBOX@ ( n --- @ sbox + n )
-  SBOX+ C@ ;
-
-: SBOXINV+ ( n --- sboxinv + n )
-  SBOXINV + ;
-
-: SBOXINV@ ( n --- @ sboxinv + n )
-  SBOXINV+ C@ ;
-
-: LOG@
-  LOG + C@ ;
-
-: LOGINV@
-  LOGINV + C@ ;
+  STATE + C! ;
 
 : STATE-INIT ( --- state zeros )
   STATE 10 0 FILL ;
@@ -233,6 +176,12 @@ CREATE ROUNDCON
     STATE! 
   LOOP ;
 
+: KEY@ ( n --- @ key + n )
+  KEY + C@ ;
+
+: KEY! ( n addrn --- ! key + n )
+  KEY + C! ;
+
 : KEY-INIT ( --- key zeros )
   KEY 10 0 FILL ;
 
@@ -246,6 +195,46 @@ CREATE ROUNDCON
     KEY!
   LOOP ;
 
+: RKEY@ ( n --- @ rkey + n )
+  RKEY + C@ ;
+
+: RKEY! ( n addrn --- ! rkey + n )
+  RKEY + C! ;
+
+: RKEY-INIT ( --- key zeros )
+  RKEY 10 0 FILL ;
+
+: WT@ ( n --- @ wt + n )
+  WT + C@ ;
+
+: WT! ( n addrn --- ! wt + n )
+  WT + C! ;
+
+: WT-INIT
+  WT 4 0  FILL ;
+
+: MC@ ( n --- @ mc + n )
+  MC + C@ ;
+
+: MC! ( n addrn --- ! mc + n )
+  MC + C! ;
+
+: MC-INIT
+  MC 4 0 FILL ;
+
+: SBOX@ ( n --- @ sbox + n )
+  SBOX + C@ ;
+
+: SBOXINV@ ( n --- @ sboxinv + n )
+  SBOXINV + C@ ;
+
+: LOG@
+  LOG + C@ ;
+
+: LOGINV@
+  LOGINV + C@ ;
+
+
 : MULGF2 ( n1,n2 --- n )
   OVER IF 
     LOG@ SWAP LOG@ +
@@ -254,7 +243,7 @@ CREATE ROUNDCON
     DROP DROP 0 
   THEN ;
 
-\ --- Debugging words --------------------------
+\ --- Ouptut words ----------------------------
 
 : STATE? ( --- )
   10 0 DO I 
@@ -298,6 +287,16 @@ CREATE ROUNDCON
   4 0 DO I 8 + RKEY@ I 4 + RKEY@ XOR I 8 + RKEY! LOOP
   \ --- word 3
   4 0 DO I C + RKEY@ I 8 + RKEY@ XOR I C + RKEY! LOOP ;
+\ ---------------------------------------------
+\ --------- AES 128 INIT ----------------------
+\ ---------------------------------------------
+
+: AES-INIT
+  STATE-INIT
+  KEY-INIT
+  RKEY-INIT
+  WT-INIT
+  MC-INIT ;
 
 \ ---------------------------------------------
 \ --------- AES 128 ENCODING ------------------
@@ -406,24 +405,29 @@ CREATE ROUNDCON
 
 \ --------- TESTING ---------------------------
 
-: ENCTEST
+: SET-VARS
+
+  AES-INIT
 
   \ ---- Key from FIPS-197 ( key-byte nr. 0 on top of the stack )
   0F 0E 0D 0C 0B 0A 09 08 
-\ --- 3C 4F CF 09 88 15 F7 AB 
   KEY-SET-LOW
   07 06 05 04 03 02 01 00
-\ --- A6 D2 AE 28 16 15 7E 2B
   KEY-SET-HIGH
 
   \ ---- Plaintext from FIPS-197 ( state-byte nr. 0 on top of the stack)
   FF EE DD CC BB AA 99 88 
   STATE-SET-LOW
   77 66 55 44 33 22 11 00
-  STATE-SET-HIGH
+  STATE-SET-HIGH ;
 
+: ENCTEST
+
+  SET-VARS
+  \ ---- Do thwe encoding
   CR ." KEY:    " KEY?
   CR ." PLAIN:  " STATE?
   ENCODE128
   CR ." ENCODING... "
   CR ." CIPHER: " STATE? ;
+
