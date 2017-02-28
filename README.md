@@ -9,3 +9,5 @@ WARNING: This is still work-in-progress and is not meant to be used in any other
 J1 by James Bowman:
 https://github.com/jamesbowman
 
+J1Sc by Steffen Reith:
+published soon
