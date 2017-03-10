@@ -5,8 +5,9 @@ Get the OLEDRGB_96x64 to work:
 
 1. Boot up the J1A on an IceStick
 2. Get a connection to the shell.py on your PC
-3. #include oledrgb.fs
-5. endless
+3. >#include oledrgb.fs
+4. >oled-init
+5. >endless
 
 Notes:
 

@@ -152,7 +152,7 @@
   35 35 35
   3 0 DO SPI-SEND LOOP ;
 
-: LINE-MOVE
+: LINE-DMOVE
   5F 0 DO
     CLEAR
     3F I 0 5F I - LINE
@@ -165,9 +165,56 @@
   -1 +LOOP
   ;
 
+: LINE-ROTATE
+  5F 0 DO
+    CLEAR
+    3F I 0 5F I - LINE
+    100 US
+  LOOP
+  3F 0 DO
+    CLEAR
+    I 0 3F I - 5F LINE
+    100 US
+  LOOP
+  ;
+
+: LINE-HMOVE
+  5F 0 DO
+    CLEAR
+    3F I 0 I LINE
+    100 US
+  LOOP
+  0 5F DO
+    CLEAR
+    3F I 0 I LINE
+    100 US
+  -1 +LOOP
+  ;
+
+: LINE-VMOVE
+  3F 0 DO
+    CLEAR
+    I 5F I 0 LINE
+    100 US
+  LOOP
+  0 3F DO
+    CLEAR
+    I 5F I 0 LINE
+    100 US
+  -1 +LOOP
+  ;
+
 : ENDLESS
   BEGIN
-    LINE-MOVE
+    3 0 DO
+      LINE-ROTATE
+    LOOP
+    3 0 DO
+      LINE-HMOVE
+    LOOP
+    3 0 DO
+      LINE-VMOVE
+    LOOP
   AGAIN
   ;
 
