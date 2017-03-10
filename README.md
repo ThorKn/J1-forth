@@ -10,4 +10,4 @@ J1 by James Bowman:
 https://github.com/jamesbowman
 
 J1Sc by Steffen Reith:
-published soon
+https://github.com/SteffenReith/J1Sc
