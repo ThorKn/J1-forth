@@ -15,4 +15,8 @@ Notes:
 - It's work-in-progress and not nearly finished.
 - The SPI Implementation is my first try on this protocol and is surely crappy. But hey... It works somehow!
 
+Youtube video with the demo:
+https://youtu.be/xrxGqdlCc10
+
+
 
